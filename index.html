@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Planning Repas, Frigo & Courses Famille</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        :root {
+            --primary: #ea580c;
+            --primary-hover: #c2410c;
+            --bg: #fff7ed;
+            --card: #ffffff;
+            --text: #1f2937;
+            --danger: #dc2626;
+            --success: #166534;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 12px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card);
+            padding: 16px;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+            border: 1px solid #fed7aa;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: var(--primary);
+            font-size: 1.3em;
+            text-align: center;
+        }
+
+        .section {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+        }
+
+        select, input, button {
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9em;
+            width: 100%;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover { background: var(--primary-hover); }
+
+        .repas-card {
+            background: #fff7ed;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid #fdba74;
+            margin-top: 10px;
+        }
+
+        .planning-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .planning-day {
+            width: 80px;
+            font-weight: bold;
+            font-size: 0.88em;
+            color: var(--primary);
+        }
+
+        .course-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .course-item.fait span {
+            text-decoration: line-through;
+            color: #9ca3af;
+        }
+
+        .tag-ingred {
+            display: inline-block;
+            background: #ffedd5;
+            color: #c2410c;
+            font-size: 0.75em;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-right: 4px;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🍽️ Planning Repas, Frigo & Courses</h1>
+
+    <!-- 1. OPTION FRIGO & IDÉES -->
+    <div class="section" style="background: #fff7ed; border-color: #fed7aa;">
+        <h2 style="font-size:1em; color:var(--primary); margin-top:0;">🧊 Que reste-t-il dans mon frigo ?</h2>
+        <input type="text" id="input-frigo" placeholder="Ex: poulet, courgettes, œufs..." onkeyup="proposerRepas()">
+        
+        <div style="display:flex; gap:6px; margin-top:8px;">
+            <select id="filtre-cat" style="flex:1;" onchange="proposerRepas()">
+                <option value="tous">Toutes les catégories</option>
+                <option value="express">⚡ Rapide (< 20 min)</option>
+                <option value="equilibre">🥗 Équilibré & Familial</option>
+                <option value="plaisir">🍕 Plaisir / Week-end</option>
+            </select>
+            <button style="width:auto; padding:10px 14px;" onclick="proposerRepas()">🎲 Tirer au sort</button>
+        </div>
+
+        <div id="suggestion-card" class="repas-card" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.75em; color:var(--primary); font-weight:bold;" id="sugg-cat">EXPRESS</span>
+                <span id="sugg-match" style="font-size:0.75em; color:var(--success); font-weight:bold;"></span>
+            </div>
+            <div style="font-size:1.05em; font-weight:bold; margin:3px 0;" id="sugg-titre">Titre du repas</div>
+            <div style="font-size:0.85em; color:#4b5563;" id="sugg-desc">Description...</div>
+            <div id="sugg-ingredients" style="margin-top:6px;"></div>
+            
+            <div style="display:flex; gap:8px; margin-top:10px; align-items:center;">
+                <a id="sugg-lien" href="#" target="_blank" style="font-size:0.8em; color:var(--primary); text-decoration:underline;">Voir recette</a>
+                <button style="font-size:0.8em; padding:6px 10px; margin-left:auto;" onclick="ajouterAuPlanning()">+ Placer dans la semaine</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. PLANNING DE LA SEMAINE -->
+    <div class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h2 style="font-size:1em; color:#374151; margin:0;">📅 Menus de la Semaine</h2>
+            <button style="width:auto; font-size:0.8em; padding:6px 10px; background:#059669;" onclick="genererSemaineComplete()">⚡ Remplir toute la semaine</button>
+        </div>
+        <div id="planning-list"></div>
+    </div>
+
+    <!-- 3. LISTE DE COURSES SYNCHRONISÉE & AUTO-REMPLIE -->
+    <div class="section" style="background:#f0fdf4; border-color:#bbf7d0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h2 style="font-size:1em; color:#166534; margin:0;">🛒 Liste de Courses</h2>
+            <button style="width:auto; background:#dc2626; padding:4px 8px; font-size:0.75em;" onclick="viderCourses()">Vider la liste</button>
+        </div>
+        <div style="display:flex; gap:6px; margin-bottom:10px;">
+            <input type="text" id="nouvel-article" placeholder="Ajouter un article manuellement..." onkeypress="if(event.key==='Enter') ajouterArticleManuel()">
+            <button style="width:auto; background:#166534; padding:10px 14px;" onclick="ajouterArticleManuel()">+ Ajouter</button>
+        </div>
+        <div id="courses-list"></div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        databaseURL: "https://notes-college-demo-default-rtdb.europe-west1.firebasedatabase.app"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const ID_FAMILLE = "famille_college_01";
+    const joursSemaine = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+    // Catalogue des repas enrichi avec leurs ingrédients
+    const catalogue = [
+        { 
+            cat: "express", 
+            titre: "Wrap Poulet & Crudités", 
+            desc: "Galette de blé, émincé de poulet, tomates et sauce yaourt.", 
+            lien: "https://www.marmiton.org/recettes/recherche.aspx?aqt=wrap-poulet",
+            ingredients: ["Galettes de blé", "Poulet", "Tomates", "Salade", "Yaourt nature"]
+        },
+        { 
+            cat: "express", 
+            titre: "Croque-Monsieur Brioché", 
+            desc: "Pain brioché, jambon, emmental râpé et salade verte.", 
+            lien: "https://www.750g.com/recherche/croque-monsieur.htm",
+            ingredients: ["Pain brioché", "Jambon", "Emmental râpé", "Beurre", "Salade verte"]
+        },
+        { 
+            cat: "express", 
+            titre: "Omelette aux Champignons", 
+            desc: "Œufs battus, champignons poêlés et persillade.", 
+            lien: "https://www.marmiton.org/recettes/recherche.aspx?aqt=omelette-champignons",
+            ingredients: ["Œufs", "Champignons de Paris", "Persil", "Ail"]
+        },
+        { 
+            cat: "express", 
+            titre: "Pâtes au Pesto & Pignons", 
+            desc: "Pennes au pesto basilic frais et parmesan.", 
+            lien: "https://www.750g.com/recherche/pates-pesto.htm",
+            ingredients: ["Pâtes", "Pesto", "Parmesan", "Pignons de pin"]
+        },
+        { 
+            cat: "equilibre", 
+            titre: "Dahl de Lentilles Corail", 
+            desc: "Plat mijoté au coco et curcuma, servi avec du riz.", 
+            lien: "https://www.marmiton.org/recettes/recherche.aspx?aqt=dahl-lentilles-corail",
+            ingredients: ["Lentilles corail", "Lait de coco", "Tomates concassées", "Riz basmati", "Curry"]
+        },
+        { 
+            cat: "equilibre", 
+            titre: "Dos de Cabillaud au Four", 
+            desc: "Poisson citronné sur lit de courgettes et tomates cerises.", 
+            lien: "https://www.750g.com/recherche/cabillaud-au-four.htm",
+            ingredients: ["Dos de cabillaud", "Courgettes", "Tomates cerises", "Citron", "Huile d'olive"]
+        },
+        { 
+            cat: "equilibre", 
+            titre: "Gnocchis Épinards & Ricotta", 
+            desc: "Gnocchis dorés à la poêle avec pousses d'épinard.", 
+            lien: "https://www.marmiton.org/recettes/recherche.aspx?aqt=gnocchis-epinards",
+            ingredients: ["Gnocchis", "Pousses d'épinard", "Ricotta", "Ail"]
+        },
+        { 
+            cat: "plaisir", 
+            titre: "Burger Maison", 
+            desc: "Pain bun, steak, cheddar fondu et oignons caramélisés.", 
+            lien: "https://www.marmiton.org/recettes/recherche.aspx?aqt=burger-maison",
+            ingredients: ["Pains burger", "Steaks hachés", "Cheddar", "Oignons", "Sauce burger"]
+        },
+        { 
+            cat: "plaisir", 
+            titre: "Tarte Courgettes & Chèvre", 
+            desc: "Pâte feuilletée, rondelles de courgettes et chèvre miel.", 
+            lien: "https://www.750g.com/recherche/tarte-courgette-chevre.htm",
+            ingredients: ["Pâte feuilletée", "Courgettes", "Bûche de chèvre", "Miel", "Œufs"]
+        },
+        { 
+            cat: "plaisir", 
+            titre: "Lasagnes Bolognaise", 
+            desc: "Sauce mijotée, pâtes fraîches et béchamel dorée.", 
+            lien: "https://www.marmiton.org/recettes/recherche.aspx?aqt=lasagnes",
+            ingredients: ["Pâtes à lasagne", "Viande hachée", "Sauce tomate", "Béchamel", "Fromage râpé"]
+        }
+    ];
+
+    let appData = {
+        repas: {},
+        courses: []
+    };
+    let dernierRepas = null;
+
+    window.onload = function() {
+        db.ref('familles/' + ID_FAMILLE + '/appRepas').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                appData = data;
+                if (!appData.repas) appData.repas = {};
+                if (!appData.courses) appData.courses = [];
+            }
+            afficherPlanning();
+            afficherCourses();
+        });
+    };
+
+    function sauvegarder() {
+        db.ref('familles/' + ID_FAMILLE + '/appRepas').set(appData);
+    }
+
+    // SUGESTION & OPTION FRIGO
+    function proposerRepas() {
+        const cat = document.getElementById("filtre-cat").value;
+        const saisieFrigo = document.getElementById("input-frigo").value.toLowerCase().trim();
+        
+        let liste = cat === "tous" ? catalogue : catalogue.filter(r => r.cat === cat);
+
+        if (saisieFrigo.length > 0) {
+            const motsCles = saisieFrigo.split(',').map(m => m.trim()).filter(m => m.length > 0);
+            liste = liste.filter(r => {
+                return motsCles.some(m => 
+                    r.titre.toLowerCase().includes(m) || 
+                    r.desc.toLowerCase().includes(m) ||
+                    r.ingredients.some(ing => ing.toLowerCase().includes(m))
+                );
+            });
+        }
+
+        if (liste.length === 0) {
+            document.getElementById("suggestion-card").style.display = "block";
+            document.getElementById("sugg-titre").innerText = "Aucun plat trouvé";
+            document.getElementById("sugg-desc").innerText = "Essayez d'autres ingrédients ou modifiez les filtres.";
+            document.getElementById("sugg-ingredients").innerHTML = "";
+            document.getElementById("sugg-lien").style.display = "none";
+            dernierRepas = null;
+            return;
+        }
+
+        dernierRepas = liste[Math.floor(Math.random() * liste.length)];
+        
+        document.getElementById("sugg-cat").innerText = dernierRepas.cat.toUpperCase();
+        document.getElementById("sugg-match").innerText = saisieFrigo ? "🔍 Recette compatible Frigo" : "";
+        document.getElementById("sugg-titre").innerText = dernierRepas.titre;
+        document.getElementById("sugg-desc").innerText = dernierRepas.desc;
+        document.getElementById("sugg-lien").href = dernierRepas.lien;
+        document.getElementById("sugg-lien").style.display = "inline";
+
+        let ingHtml = "";
+        dernierRepas.ingredients.forEach(ing => {
+            ingHtml += `<span class="tag-ingred">${ing}</span>`;
+        });
+        document.getElementById("sugg-ingredients").innerHTML = ingHtml;
+
+        document.getElementById("suggestion-card").style.display = "block";
+    }
+
+    // AJOUT D'UN REPAS ET REMPLISSAGE AUTOMATIQUE DES COURSES
+    function ajouterAuPlanning() {
+        if (!dernierRepas) return;
+        const jour = prompt("Ajouter à quel jour ? (Lundi, Mardi...)", "Lundi");
+        if (jour && joursSemaine.includes(jour)) {
+            appData.repas[jour] = dernierRepas.titre;
+            ajouterIngredientsAuxCourses(dernierRepas.ingredients);
+            sauvegarder();
+        }
+    }
+
+    function genererSemaineComplete() {
+        const melange = [...catalogue].sort(() => 0.5 - Math.random());
+        joursSemaine.forEach((j, idx) => {
+            const plat = melange[idx % melange.length];
+            appData.repas[j] = plat.titre;
+            ajouterIngredientsAuxCourses(plat.ingredients);
+        });
+        sauvegarder();
+    }
+
+    function modifierRepas(jour, titrePlat) {
+        appData.repas[jour] = titrePlat;
+        const platTrouve = catalogue.find(r => r.titre.toLowerCase() === titrePlat.toLowerCase());
+        if (platTrouve) {
+            ajouterIngredientsAuxCourses(platTrouve.ingredients);
+        }
+        sauvegarder();
+    }
+
+    function ajouterIngredientsAuxCourses(listeIng) {
+        if (!appData.courses) appData.courses = [];
+        listeIng.forEach(ing => {
+            const existe = appData.courses.some(item => item.texte.toLowerCase() === ing.toLowerCase());
+            if (!existe) {
+                appData.courses.push({ texte: ing, coche: false });
+            }
+        });
+    }
+
+    function afficherPlanning() {
+        const container = document.getElementById("planning-list");
+        container.innerHTML = "";
+        joursSemaine.forEach(j => {
+            const val = appData.repas[j] || "";
+            const row = document.createElement("div");
+            row.className = "planning-row";
+            row.innerHTML = `
+                <div class="planning-day">${j}</div>
+                <input type="text" value="${val}" placeholder="Ajouter un plat..." onchange="modifierRepas('${j}', this.value)">
+            `;
+            container.appendChild(row);
+        });
+    }
+
+    // GESTION LISTE DE COURSES
+    function ajouterArticleManuel() {
+        const input = document.getElementById("nouvel-article");
+        const texte = input.value.trim();
+        if (texte) {
+            if (!appData.courses) appData.courses = [];
+            appData.courses.push({ texte: texte, coche: false });
+            input.value = "";
+            sauvegarder();
+        }
+    }
+
+    function basculerCourse(idx) {
+        appData.courses[idx].coche = !appData.courses[idx].coche;
+        sauvegarder();
+    }
+
+    function supprimerCourse(idx) {
+        appData.courses.splice(idx, 1);
+        sauvegarder();
+    }
+
+    function viderCourses() {
+        if (confirm("Voulez-vous vider toute la liste de courses ?")) {
+            appData.courses = [];
+            sauvegarder();
+        }
+    }
+
+    function afficherCourses() {
+        const container = document.getElementById("courses-list");
+        container.innerHTML = "";
+        if (!appData.courses || appData.courses.length === 0) {
+            container.innerHTML = "<div style='font-size:0.85em; color:#6b7280; text-align:center;'>Aucun article dans la liste.</div>";
+            return;
+        }
+
+        appData.courses.forEach((item, idx) => {
+            const row = document.createElement("div");
+            row.className = `course-item ${item.coche ? 'fait' : ''}`;
+            row.innerHTML = `
+                <input type="checkbox" style="width:auto;" ${item.coche ? 'checked' : ''} onchange="basculerCourse(${idx})">
+                <span style="flex:1; font-size:0.9em;">${item.texte}</span>
+                <button style="width:auto; background:#dc2626; padding:4px 8px; font-size:0.75em;" onclick="supprimerCourse(${idx})">✕</button>
+            `;
+            container.appendChild(row);
+        });
+    }
+</script>
+
+</body>
+</html>
