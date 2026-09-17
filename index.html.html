@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Planning Repas & Courses v2.2.0</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        :root {
+            --primary: #ea580c;
+            --primary-hover: #c2410c;
+            --bg: #fff7ed;
+            --card: #ffffff;
+            --text: #1f2937;
+            --danger: #dc2626;
+            --success: #166534;
+            --secondary: #4f46e5;
+            --api: #0284c7;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 12px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 650px;
+            background: var(--card);
+            padding: 16px;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+            border: 1px solid #fed7aa;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: var(--primary);
+            font-size: 1.3em;
+            text-align: center;
+        }
+
+        .section {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+        }
+
+        select, input, button {
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9em;
+            width: 100%;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover { background: var(--primary-hover); }
+
+        .repas-card {
+            background: #fff7ed;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid #fdba74;
+            margin-top: 10px;
+        }
+
+        .planning-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .planning-day {
+            width: 70px;
+            font-weight: bold;
+            font-size: 0.85em;
+            color: var(--primary);
+            flex-shrink: 0;
+        }
+
+        .btn-action {
+            width: auto;
+            padding: 8px 9px;
+            font-size: 0.8em;
+            flex-shrink: 0;
+        }
+
+        .btn-delete { background: var(--danger); }
+        .btn-recipe { background: var(--secondary); }
+        .btn-refresh { background: var(--api); }
+
+        .rayon-header {
+            background: #e5e7eb;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.85em;
+            color: #374151;
+            margin-top: 10px;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .course-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .course-item.fait span {
+            text-decoration: line-through;
+            color: #9ca3af;
+        }
+
+        .prix-tag {
+            font-size: 0.8em;
+            color: #059669;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .total-box {
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            color: #14532d;
+        }
+
+        .tag-ingred {
+            display: inline-block;
+            background: #ffedd5;
+            color: #c2410c;
+            font-size: 0.75em;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-right: 4px;
+            margin-top: 4px;
+        }
+
+        .fiche-semaine-card {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .img-preview {
+            width: 100%;
+            max-height: 160px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-top: 6px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .result-item {
+            background: #ffffff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 6px;
+            cursor: pointer;
+            text-align: center;
+            transition: transform 0.1s, border-color 0.2s;
+        }
+
+        .result-item:hover {
+            border-color: var(--api);
+            transform: scale(1.02);
+        }
+
+        .result-item img {
+            width: 100%;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        .result-item-title {
+            font-size: 0.75em;
+            font-weight: bold;
+            color: #0369a1;
+            margin-top: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .day-picker-box {
+            display: none;
+            background: #ffedd5;
+            border: 1px solid #fdba74;
+            border-radius: 8px;
+            padding: 8px;
+            margin-top: 8px;
+        }
+
+        .day-picker-title {
+            font-size: 0.8em;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 6px;
+            text-align: center;
+        }
+
+        .day-buttons-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+        }
+
+        .btn-day-pick {
+            background: #ffffff;
+            color: var(--primary);
+            border: 1px solid #fdba74;
+            padding: 6px 2px;
+            font-size: 0.75em;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .btn-day-pick:hover {
+            background: var(--primary);
+            color: #ffffff;
+        }
+
+        .trad-box {
+            background: #f8fafc;
+            border: 1px dashed #94a3b8;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .qte-badge {
+            background: #ea580c;
+            color: #ffffff;
+            font-size: 0.7em;
+            font-weight: bold;
+            padding: 1px 6px;
+            border-radius: 10px;
+            margin-left: 4px;
+        }
+
+        .historique-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px;
+            margin-bottom: 6px;
+            font-size: 0.8em;
+        }
+
+        @media print {
+            body * { visibility: hidden; }
+            #zone-impression, #zone-impression * { visibility: visible; }
+            #zone-impression { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🍽️ Repas & Courses v2.2.0</h1>
+
+    <!-- 1. INSPIRATION PAR CATÉGORIE -->
+    <div class="section" style="background: #fff7ed; border-color: #fed7aa;">
+        <h2 style="font-size:1em; color:var(--primary); margin-top:0;">🎲 En manque d'inspiration ?</h2>
+        <div style="display:flex; gap:6px;">
+            <select id="filtre-cat" style="flex:1;">
+                <option value="tous">Toutes les idées (recettes FR)</option>
+                <option value="express">⚡ Repas Express (< 20 min)</option>
+                <option value="equilibre">🥗 Repas Équilibré & Familial</option>
+                <option value="plaisir">🍕 Repas Plaisir / Week-end</option>
+                <option value="gouter">🍰 Goûters & Encas</option>
+                <option value="dessert">🍨 Desserts & Douceurs</option>
+            </select>
+            <button style="width:auto; padding:10px 14px;" onclick="proposerRepasHasard()">Suggérer</button>
+        </div>
+
+        <div id="suggestion-card" class="repas-card" style="display:none;">
+            <div style="font-size:0.75em; color:var(--primary); font-weight:bold;" id="sugg-cat">EXPRESS</div>
+            <div style="font-size:1.05em; font-weight:bold; margin:3px 0;" id="sugg-titre">Titre du repas</div>
+            <div style="font-size:0.85em; color:#4b5563;" id="sugg-desc">Description...</div>
+            <div style="display:flex; gap:8px; margin-top:10px; align-items:center;">
+                <a id="sugg-lien" href="#" target="_blank" style="font-size:0.85em; color:var(--primary); font-weight:bold; text-decoration:underline;">👉 Voir la recette complète</a>
+                <button style="font-size:0.8em; padding:6px 10px; margin-left:auto;" onclick="afficherSelecteurJour('hasard')">+ Placer dans la semaine</button>
+            </div>
+            
+            <div id="picker-hasard" class="day-picker-box">
+                <div class="day-picker-title">Choisir le jour :</div>
+                <div class="day-buttons-grid" id="picker-hasard-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. VIDE-FRIGO -->
+    <div class="section" style="background: #fff7ed; border-color: #fed7aa;">
+        <h2 style="font-size:1em; color:var(--primary); margin-top:0;">🧊 Que reste-t-il dans mon frigo ?</h2>
+        <div style="display:flex; gap:6px;">
+            <input type="text" id="input-frigo" placeholder="Ex: poulet, courgettes, œufs..." onkeypress="if(event.key==='Enter') chercherFrigo()">
+            <button style="width:auto; padding:10px 14px;" onclick="chercherFrigo()">Trouver</button>
+        </div>
+
+        <div id="frigo-card" class="repas-card" style="display:none;">
+            <div style="font-size:0.75em; color:var(--success); font-weight:bold;">🔍 RECETTE COMPATIBLE FRIGO</div>
+            <div style="font-size:1.05em; font-weight:bold; margin:3px 0;" id="frigo-titre">Titre du repas</div>
+            <div style="font-size:0.85em; color:#4b5563;" id="frigo-desc">Description...</div>
+            <div id="frigo-ingredients" style="margin-top:6px;"></div>
+            <div style="display:flex; gap:8px; margin-top:10px; align-items:center;">
+                <a id="frigo-lien" href="#" target="_blank" style="font-size:0.85em; color:var(--primary); font-weight:bold; text-decoration:underline;">👉 Voir la recette complète</a>
+                <button style="font-size:0.8em; padding:6px 10px; margin-left:auto;" onclick="afficherSelecteurJour('frigo')">+ Placer dans la semaine</button>
+            </div>
+
+            <div id="picker-frigo" class="day-picker-box">
+                <div class="day-picker-title">Choisir le jour :</div>
+                <div class="day-buttons-grid" id="picker-frigo-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. RECHERCHE WEB EN DIRECT & TRADUCTEUR D'APPOINT -->
+    <details class="section" style="background: #f0f9ff; border-color: #bae6fd;" open>
+        <summary style="font-weight:bold; color:var(--api); cursor:pointer;">🌐 Explorer d'autres idées sur le Web</summary>
+        <div style="margin-top:10px;">
+            <div style="display:flex; gap:6px;">
+                <input type="text" id="input-api-query" placeholder="Ex: pomme, poulet, saumon, chocolat..." onkeypress="if(event.key==='Enter') rechercherApiDirect()">
+                <button style="width:auto; padding:10px 14px; background:var(--api);" onclick="rechercherApiDirect()">🔍 Chercher</button>
+            </div>
+            <button style="margin-top:8px; background:#0284c7; font-size:0.85em;" onclick="proposerRandomApi()">🎲 Idée au hasard depuis le Web</button>
+
+            <!-- TRADUCTEUR D'APPOINT -->
+            <div class="trad-box">
+                <div style="font-size:0.8em; font-weight:bold; color:#475569; margin-bottom:4px;">🔤 Traducteur d'appoint</div>
+                <div style="display:flex; gap:6px;">
+                    <input type="text" id="input-trad-express" placeholder="Coller un mot anglais (ex: parsley)..." onkeypress="if(event.key==='Enter') traduireEtCollecterMotExpress()">
+                    <button style="width:auto; background:#475569; padding:8px 12px; font-size:0.85em;" onclick="traduireEtCollecterMotExpress()">Traduire</button>
+                </div>
+                <div id="res-trad-express" style="font-size:0.85em; font-weight:bold; color:#0369a1; margin-top:6px; display:none;"></div>
+            </div>
+
+            <div id="api-results-grid" class="results-grid" style="display:none;"></div>
+
+            <div id="api-card" class="repas-card" style="display:none; background:#ffffff; border-color:#7dd3fc;">
+                <div style="font-size:0.75em; color:var(--api); font-weight:bold;" id="api-cat">RECETTE WEB</div>
+                <div style="font-size:1.1em; font-weight:bold; margin:3px 0;" id="api-titre">Titre</div>
+                <img id="api-img" class="img-preview" src="" alt="Photo">
+                <div style="font-size:0.85em; color:#4b5563; margin-top:6px;" id="api-desc">Description...</div>
+                <div id="api-ingredients" style="margin-top:6px;"></div>
+                <div style="display:flex; gap:8px; margin-top:10px; align-items:center;">
+                    <a id="api-lien" href="#" target="_blank" style="font-size:0.85em; color:var(--api); font-weight:bold; text-decoration:underline;">👉 Fiche complète (Traduite)</a>
+                    <button style="font-size:0.8em; padding:6px 10px; margin-left:auto; background:var(--primary);" onclick="afficherSelecteurJour('api')">+ Placer dans la semaine</button>
+                </div>
+
+                <div id="picker-api" class="day-picker-box">
+                    <div class="day-picker-title">Choisir le jour :</div>
+                    <div class="day-buttons-grid" id="picker-api-grid"></div>
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <!-- 4. MENUS DE LA SEMAINE -->
+    <div class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
+            <h2 style="font-size:1em; color:#374151; margin:0;">📅 Menus de la Semaine</h2>
+            <div style="display:flex; gap:6px; align-items:center;">
+                <label style="font-size:0.75em; font-weight:bold; color:#374151; white-space:nowrap;">👥 Personnes :</label>
+                <input type="number" id="nb-personnes" value="4" min="1" max="20" style="width:60px; padding:6px;" onchange="changerPortions(this.value)">
+            </div>
+        </div>
+        <div style="display:flex; gap:6px; margin-bottom:10px;">
+            <button style="font-size:0.8em; padding:6px 10px; background:#059669;" onclick="genererSemaineComplete()">⚡ Remplir toute la semaine</button>
+            <button style="font-size:0.8em; padding:6px 10px; background:#b45309;" onclick="archiverSemaine()">📦 Archiver cette semaine</button>
+        </div>
+        <div id="planning-list"></div>
+    </div>
+
+    <!-- 4ter. HISTORIQUE DES SEMAINES -->
+    <details class="section" style="background:#f8fafc; border-color:#e2e8f0;">
+        <summary style="font-weight:bold; color:#475569; cursor:pointer;">🕓 Historique des semaines archivées</summary>
+        <div id="historique-list" style="margin-top:10px;"></div>
+    </details>
+
+    <!-- 4bis. FICHES RECETTES DE LA SEMAINE -->
+    <div class="section" style="background: #fffbe3; border-color: #fde68a;">
+        <h2 style="font-size:1em; color: #b45309; margin-top:0;">📖 Fiches Recettes de la Semaine</h2>
+        <div id="fiches-semaine-list"></div>
+    </div>
+
+    <!-- 5. LISTE DE COURSES -->
+    <div class="section" style="background:#f0fdf4; border-color:#bbf7d0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h2 style="font-size:1em; color:var(--success); margin:0;">🛒 Liste de Courses</h2>
+            <button style="width:auto; background:var(--danger); padding:4px 8px; font-size:0.75em;" class="no-print" onclick="viderCourses()">Vider</button>
+        </div>
+
+        <div style="display:flex; gap:6px; margin-bottom:10px; align-items:center;" class="no-print">
+            <label style="font-size:0.8em; font-weight:bold; color:#166534; white-space:nowrap;">Enseigne :</label>
+            <select id="choix-magasin" onchange="changerMagasin(this.value)">
+                <option value="superu">🏬 Super U</option>
+                <option value="leclerc">🏬 E.Leclerc</option>
+                <option value="carrefour">🏬 Carrefour</option>
+            </select>
+        </div>
+
+        <div style="display:flex; gap:6px; margin-bottom:10px;" class="no-print">
+            <button style="font-size:0.85em; padding:8px 10px; background:#4f46e5;" onclick="imprimerCourses()">🖨️ Imprimer</button>
+            <button style="font-size:0.85em; padding:8px 10px; background:#0284c7;" onclick="partagerCourses()">📤 Partager / Rappels</button>
+        </div>
+
+        <div id="zone-impression">
+            <div class="total-box">
+                <span id="label-total">Montant Total Estimé (4 pers.) :</span>
+                <span id="total-montant" style="font-size:1.1em;">0.00 €</span>
+            </div>
+
+            <div style="display:flex; gap:6px; margin-bottom:10px;" class="no-print">
+                <input type="text" id="nouvel-article" placeholder="Nom de l'article..." style="flex:2;">
+                <input type="number" id="prix-article" placeholder="Prix €" step="0.10" min="0" style="flex:1;">
+                <button style="width:auto; background:var(--success); padding:10px 12px;" onclick="ajouterArticleManuel()">+ Ajouter</button>
+            </div>
+
+            <div id="courses-list"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // FIREBASE CONFIGURATION
+    const firebaseConfig = {
+        databaseURL: "https://repas-famille-578f9-default-rtdb.europe-west1.firebasedatabase.app/"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const ID_FAMILLE = "famille_college_01";
+    const joursSemaine = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+    const ordreRayons = {
+        superu: ["🥦 Fruits & Légumes", "🧀 Frais & Crèmerie", "🥩 Boucherie & Poissonnerie", "🍝 Épicerie", "🧊 Surgelés", "📦 Divers"],
+        leclerc: ["🥦 Fruits & Légumes", "🥩 Boucherie & Poissonnerie", "🧀 Frais & Crèmerie", "🍝 Épicerie", "🧊 Surgelés", "📦 Divers"],
+        carrefour: ["🥦 Fruits & Légumes", "🧀 Frais & Crèmerie", "🍝 Épicerie", "🥩 Boucherie & Poissonnerie", "🧊 Surgelés", "📦 Divers"]
+    };
+
+    const dictFrEn = {
+        "pomme": "apple", "pommes": "apples", "poulet": "chicken", "boeuf": "beef", "bœuf": "beef", 
+        "porc": "pork", "saumon": "salmon", "poisson": "fish", "riz": "rice", "pates": "pasta", 
+        "pâtes": "pasta", "tomate": "tomato", "tomates": "tomatoes", "oignon": "onion", "oignons": "onions", 
+        "ail": "garlic", "fromage": "cheese", "beurre": "butter", "oeufs": "eggs", "œufs": "eggs", 
+        "lait": "milk", "farine": "flour", "sucre": "sugar", "sel": "salt", "poivre": "pepper", 
+        "citron": "lemon", "pomme de terre": "potato", "pommes de terre": "potatoes", 
+        "champignon": "mushroom", "champignons": "mushrooms", "epinards": "spinach", "épinards": "spinach", 
+        "crevette": "shrimp", "crevettes": "shrimps", "dinde": "turkey", "agneau": "lamb", 
+        "fruits de mer": "seafood", "fruit de mer": "seafood", "poireau": "leek", "poireaux": "leeks",
+        "chocolat": "chocolate", "fraise": "strawberry", "fraises": "strawberries", "poire": "pear", "poires": "pears"
+    };
+
+    const dictEnFr = {
+        "turkey mince": "Dinde hachée",
+        "turkey": "Dinde",
+        "meatloaf": "Pain de viande",
+        "barbeque sauce": "Sauce barbecue",
+        "barbecue sauce": "Sauce barbecue",
+        "tomato puree": "Purée de tomates",
+        "tomate puree": "Purée de tomates",
+        "parsley": "Persil",
+        "ginger cordial": "Sirop de gingembre",
+        "ginger paste": "Pâte de gingembre",
+        "ginger": "Gingembre",
+        "coriander leaves": "Feuilles de coriandre",
+        "coriander": "Coriandre",
+        "cilantro": "Coriandre fraîche",
+        "congee": "Bouillie de riz (Congee)",
+        "red pepper paste": "Purée de poivron rouge",
+        "green pepper paste": "Purée de poivron vert",
+        "sweet pepper paste": "Purée de poivron doux",
+        "romano pepper": "Poivron Romano",
+        "bell pepper": "Poivron",
+        "red pepper": "Poivron rouge",
+        "green pepper": "Poivron vert",
+        "yellow pepper": "Poivron jaune",
+        "sweet pepper": "Poivron doux",
+        "black pepper": "Poivre noir",
+        "ground pepper": "Poivre moulu",
+        "white pepper": "Poivre blanc",
+        "cayenne pepper": "Piment de Cayenne",
+        "lamb mince": "Agneau haché",
+        "minced lamb": "Agneau haché",
+        "beef mince": "Bœuf haché",
+        "minced beef": "Bœuf haché",
+        "ground beef": "Bœuf haché",
+        "pork mince": "Porc haché",
+        "minced pork": "Porc haché",
+        "pork chops": "Côtelettes de porc",
+        "pork chop": "Côtelette de porc",
+        "pork belly": "Poitrine de porc",
+        "chicken thighs": "Hauts de cuisse de poulet",
+        "chicken thigh": "Haut de cuisse de poulet",
+        "chicken drumsticks": "Pilons de poulet",
+        "chicken drumstick": "Pilon de poulet",
+        "chicken breast": "Blanc de poulet",
+        "chicken wings": "Ailes de poulet",
+        "chicken legs": "Cuisses de poulet",
+        "chicken leg": "Cuisse de poulet",
+        "chicken stock": "Bouillon de poulet",
+        "beef stock": "Bouillon de bœuf",
+        "vegetable stock": "Bouillon de légumes",
+        "fish stock": "Bouillon de poisson",
+        "salmon fillet": "Filet de saumon",
+        "king prawns": "Gambas",
+        "frozen seafood mix": "Mélange de fruits de mer surgelés",
+        "seafood mix": "Mélange de fruits de mer",
+        "sunflower oil": "Huile de tournesol",
+        "sesame oil": "Huile de sésame",
+        "rapeseed oil": "Huile de colza",
+        "canola oil": "Huile de colza",
+        "peanut oil": "Huile d'arachide",
+        "olive oil": "Huile d'olive",
+        "vegetable oil": "Huile végétale",
+        "pul biber": "Piment d'Alep (Pul biber)",
+        "chilli flakes": "Piment en flocons",
+        "chili flakes": "Piment en flocons",
+        "tahini": "Purée de sésame (Tahini)",
+        "spring onion": "Oignon nouveau",
+        "spring onions": "Oignons nouveaux",
+        "scallion": "Oignon nouveau",
+        "scallions": "Oignons nouveaux",
+        "sour cream": "Crème fraîche aigre",
+        "double cream": "Crème fluide entière",
+        "heavy cream": "Crème liquide entière",
+        "whipping cream": "Crème fouettée",
+        "greek yogurt": "Yaourt grec",
+        "cream cheese": "Fromage frais (type St Morêt)",
+        "cottage cheese": "Cottage cheese",
+        "ricotta": "Ricotta",
+        "feta": "Feta",
+        "halloumi": "Halloumi",
+        "condensed milk": "Lait concentré sucré",
+        "evaporated milk": "Lait concentré non sucré",
+        "sugar snap peas": "Pois gourmands",
+        "snow peas": "Pois gourmands",
+        "cherry tomatoes": "Tomates cerises",
+        "caster sugar": "Sucre en poudre",
+        "granulated sugar": "Sucre cristal",
+        "brown sugar": "Cassonade",
+        "cane sugar": "Sucre de canne",
+        "icing sugar": "Sucre glace",
+        "powdered sugar": "Sucre glace",
+        "baking powder": "Levure chimique",
+        "baking soda": "Bicarbonate de soude",
+        "cocoa powder": "Cacao en poudre",
+        "dark chocolate": "Chocolat noir",
+        "milk chocolate": "Chocolat au lait",
+        "white chocolate": "Chocolat blanc",
+        "chocolate chips": "Pépites de chocolat",
+        "maple syrup": "Sirop d'érable",
+        "almond flour": "Poudre d'amandes",
+        "ground almonds": "Amandes moulues",
+        "flaked almonds": "Amandes effilées",
+        "puff pastry": "Pâte feuilletée",
+        "shortcrust pastry": "Pâte brisée",
+        "sweet pastry": "Pâte sablée",
+        "chickpeas": "Pois chiches",
+        "kidney beans": "Haricots rouges",
+        "black beans": "Haricots noirs",
+        "cannellini beans": "Haricots blancs",
+        "green lentils": "Lentilles vertes",
+        "red lentils": "Lentilles corail",
+        "lentils": "Lentilles",
+        "couscous": "Couscous",
+        "bulgur": "Boulghour",
+        "quinoa": "Quinoa",
+        "naan": "Pain Naan",
+        "pita": "Pain Pita",
+        "tortilla": "Galette Tortilla",
+        "self-raising flour": "Farine avec levure incorporée",
+        "plain flour": "Farine fluide",
+        "cashew nuts": "Noix de cajou",
+        "cashews": "Noix de cajou",
+        "pine nuts": "Pignons de pin",
+        "peanut butter": "Beurre de cacahuète",
+        "peanuts": "Cacahuètes",
+        "desiccated coconut": "Noix de coco râpée",
+        "shredded coconut": "Noix de coco râpée",
+        "pomegranate seeds": "Grains de grenade",
+        "pomegranate": "Grenade",
+        "shiitake mushrooms": "Champignons Shiitaké",
+        "button mushrooms": "Champignons de Paris",
+        "sweet potato": "Patate douce",
+        "butternut squash": "Courge Butternut",
+        "pumpkin": "Potiron",
+        "celery stick": "Branche de céleri",
+        "celery": "Céleri",
+        "aubergine": "Aubergine",
+        "eggplant": "Aubergine",
+        "shallots": "Échalotes",
+        "shallot": "Échalote",
+        "fish sauce": "Sauce poisson (Nuoc-mâm)",
+        "oyster sauce": "Sauce d'huître",
+        "worcestershire sauce": "Sauce Worcestershire",
+        "sriracha": "Sauce Sriracha",
+        "hot sauce": "Sauce pimentée",
+        "chilli sauce": "Sauce pimentée",
+        "cider vinegar": "Vinaigre de cidre",
+        "balsamic vinegar": "Vinaigre balsamique",
+        "rice vinegar": "Vinaigre de riz",
+        "white wine": "Vin blanc",
+        "red wine": "Vin rouge",
+        "mirin": "Mirin",
+        "sake": "Saké",
+        "red chilli": "Piment rouge", "green chilli": "Piment vert", "chilli powder": "Piment en poudre",
+        "basil leaves": "Feuilles de basilic", "bay leaves": "Feuilles de laurier", "bay leaf": "Feuille de laurier",
+        "cinnamon stick": "Bâton de cannelle", "cardamom pods": "Gousses de cardamome", "vanilla pod": "Gousse de vanille",
+        "vanilla extract": "Extrait de vanille", "smoked paprika": "Paprika fumé", "ground nutmeg": "Muscade moulue",
+        "prawns": "Crevettes", "prawn": "Crevette", "lettuce": "Laitue", "cinnamon": "Cannelle",
+        "cardamom": "Cardamome", "star anise": "Anis étoilé", "cloves": "Clous de girofle", "clove": "Clou de girofle",
+        "nutmeg": "Muscade", "paprika": "Paprika", "saffron": "Safran", "vanilla": "Vanille",
+        "oregano": "Origan", "thyme": "Thym", "rosemary": "Romarin", "basil": "Basilic",
+        "chives": "Ciboulette", "mint": "Menthe", "yeast": "Levure boulangère", "honey": "Miel",
+        "hazelnuts": "Noisettes", "walnuts": "Noix", "pecans": "Noix de pécan", "raisins": "Raisins secs",
+        "passata": "Purée de tomates", "black olives": "Olives noires",
+        "green olives": "Olives vertes", "olives": "Olives", "onion": "Oignon", "onions": "Oignons",
+        "garlic": "Ail", "tomato": "Tomate", "tomates": "Tomates", "potato": "Pomme de terre",
+        "potatoes": "Pommes de terre", "mushroom": "Champignon", "mushrooms": "Champignons",
+        "spinach": "Épinards", "carrot": "Carotte", "carrots": "Carottes", "sweetcorn": "Maïs",
+        "strawberries": "Fraises", "raspberries": "Framboises", "blueberries": "Myrtilles", "cherries": "Cerises",
+        "apples": "Pommes", "pears": "Poires", "bananas": "Bananes", "lemons": "Citrons",
+        "limes": "Citrons verts", "leek": "Poireau", "leeks": "Poireaux", "peas": "Petits pois",
+        "oil": "Huile", "mustard": "Moutarde", "breadcrumbs": "Chapelure", "curry": "Curry",
+        "garam masala": "Mélange d'épices Garam Masala", "fenugreek": "Fenugrec", "yogurt": "Yaourt",
+        "cheese": "Fromage", "butter": "Beurre", "eggs": "Œufs", "egg": "Œuf", "milk": "Lait",
+        "flour": "Farine", "sugar": "Sucre", "salt": "Sel", "pepper": "Poivre", "cream": "Crème fraîche",
+        "rice": "Riz", "pasta": "Pâtes", "noodles": "Nouilles", "bread": "Pain", "water": "Eau",
+        "bacon": "Lardons", "stock": "Bouillon", "chorizo": "Chorizo", "chicken": "Poulet",
+        "beef": "Bœuf", "pork": "Porc", "salmon": "Saumon", "fish": "Poisson", "lamb": "Agneau",
+        "shrimp": "Crevettes", "shrimps": "Crevettes", "seafood": "Fruits de mer",
+        "dates": "Dattes", "figs": "Figues", "prunes": "Pruneaux", "ghee": "Beurre clarifié",
+        "finely chopped": "haché finement", "coarsely chopped": "haché grossièrement",
+        "crushed": "écrasé", "skinless": "sans peau", "boneless": "désossé", "drained": "égoutté", "rinsed": "rincé",
+        "handful": "poignée", "leaves": "feuilles", "to serve": "pour servir", "zest of": "zeste de",
+        "large": "grand", "medium": "moyen", "small": "petit"
+    };
+
+    async function traduireEnAnglaisLoc(txt) {
+        if (!txt) return "";
+        const clean = txt.toLowerCase().trim();
+
+        if (dictFrEn[clean]) return dictFrEn[clean];
+
+        try {
+            const url = "https://api.mymemory.translated.net/get?q=" + encodeURIComponent(clean) + "&langpair=fr|en";
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data && data.responseData && data.responseData.translatedText) {
+                return data.responseData.translatedText.toLowerCase();
+            }
+        } catch (e) {}
+
+        return clean;
+    }
+
+    function traduireEnFrancaisLoc(txt) {
+        if (!txt) return "";
+        let res = txt.toLowerCase();
+
+        res = res.replace(/thinly sliced|finely chopped|coarsely chopped|chopped|diced|minced|grated|peeled|dried|fresh|sliced|to taste/gi, "").trim();
+
+        res = res.replace(/\b(\d+)\s*oz\b|\boz\b/gi, "");
+        res = res.replace(/\b(\d+)\s*lb\b|\b(\d+)\s*lbs\b|\blb\b|\blbs\b/gi, "g");
+        res = res.replace(/\bfl oz\b/gi, "cl");
+        res = res.replace(/\btblsp\b|\btbls\b|\btbsp\b|\btbs\b|\btablespoon\b|\btablespoons\b/gi, "c. à soupe");
+        res = res.replace(/\btsp\b|\bteaspoon\b|\bteaspoons\b/gi, "c. à café");
+        res = res.replace(/\bcup\b|\bcups\b/gi, "tasse");
+        res = res.replace(/\bcloves\b|\bclove\b/gi, "gousse(s)");
+        res = res.replace(/\bpinch\b/gi, "pincée");
+        res = res.replace(/\bhandful\b/gi, "poignée");
+
+        const clefsTriees = Object.keys(dictEnFr).sort((a, b) => b.length - a.length);
+
+        clefsTriees.forEach(key => {
+            const reg = new RegExp("\\b" + key + "\\b", "gi");
+            res = res.replace(reg, dictEnFr[key]);
+        });
+
+        res = res.replace(/dinde mince/gi, "dinde hachée");
+        res = res.replace(/basmati riz/gi, "riz basmati");
+        res = res.replace(/jasmin riz/gi, "riz jasmin");
+        res = res.replace(/poudre cacao/gi, "cacao en poudre");
+        res = res.replace(/poudre piment/gi, "piment en poudre");
+        res = res.replace(/poudre curcuma/gi, "curcuma en poudre");
+        res = res.replace(/sunflower huile/gi, "huile de tournesol");
+
+        res = res.replace(/\s+/g, ' ').trim();
+        return res.charAt(0).toUpperCase() + res.slice(1);
+    }
+
+    async function traduireEtCollecterMotExpress() {
+        const input = document.getElementById("input-trad-express");
+        const resBox = document.getElementById("res-trad-express");
+        const motOriginal = input.value.trim();
+
+        if (!motOriginal) return;
+
+        let trad = traduireEnFrancaisLoc(motOriginal);
+
+        if (trad.toLowerCase() === motOriginal.toLowerCase()) {
+            try {
+                const url = "https://api.mymemory.translated.net/get?q=" + encodeURIComponent(motOriginal) + "&langpair=en|fr";
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data && data.responseData && data.responseData.translatedText) {
+                    trad = data.responseData.translatedText;
+                }
+            } catch (e) {}
+        }
+
+        resBox.innerText = motOriginal + " ➔ " + trad;
+        resBox.style.display = "block";
+
+        try {
+            const dateClef = Date.now();
+            db.ref('familles/' + ID_FAMILLE + '/mots_a_ajouter/' + dateClef).set({
+                anglais: motOriginal,
+                francais: trad,
+                date: new Date().toISOString()
+            });
+        } catch (e) {}
+
+        input.value = "";
+    }
+
+    function genererLienTraduit(urlOriginale) {
+        if (!urlOriginale) return "#";
+        if (urlOriginale.includes("marmiton.org") || urlOriginale.includes("750g.com") || urlOriginale.includes("cuisineaz.com") || urlOriginale.includes("papillesetpupilles.fr")) {
+            return urlOriginale;
+        }
+        return "https://translate.google.com/translate?sl=en&tl=fr&u=" + encodeURIComponent(urlOriginale);
+    }
+
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    const catalogueBase = [
+        // --- 7 REPAS EXPRESS (< 20 MIN) ---
+        { cat: "express", titre: "Wrap Poulet & Crudités", desc: "Galettes de blé, émincé de poulet, tomates et sauce yaourt.", lien: "https://www.marmiton.org/recettes/recette_wraps-au-poulet_33458.aspx", ingredients: [{ nom: "Galettes de blé (8)", rayon: "🍝 Épicerie", prix: 2.20 }, { nom: "Poulet (500g)", rayon: "🥩 Boucherie & Poissonnerie", prix: 6.50 }, { nom: "Tomates (1kg)", rayon: "🥦 Fruits & Légumes", prix: 2.50 }, { nom: "Salade verte", rayon: "🥦 Fruits & Légumes", prix: 1.20 }] },
+        { cat: "express", titre: "Croque-Monsieur Brioché", desc: "Pain brioché, jambon, emmental râpé et salade verte.", lien: "https://www.750g.com/croque-monsieur-r99532.htm", ingredients: [{ nom: "Pain brioché", rayon: "🍝 Épicerie", prix: 2.30 }, { nom: "Jambon (4 tr)", rayon: "🧀 Frais & Crèmerie", prix: 3.20 }, { nom: "Emmental râpé (200g)", rayon: "🧀 Frais & Crèmerie", prix: 2.20 }, { nom: "Salade verte", rayon: "🥦 Fruits & Légumes", prix: 1.20 }] },
+        { cat: "express", titre: "Omelette aux Champignons et Persil", desc: "Œufs frais battus, champignons poêlés et persil haché.", lien: "https://www.cuisineaz.com/recettes/omelette-aux-champignons-13681.aspx", ingredients: [{ nom: "Œufs (x6)", rayon: "🧀 Frais & Crèmerie", prix: 2.10 }, { nom: "Champignons (250g)", rayon: "🥦 Fruits & Légumes", prix: 1.80 }, { nom: "Beurre", rayon: "🧀 Frais & Crèmerie", prix: 1.90 }] },
+        { cat: "express", titre: "Pâtes au Pesto et Pignons", desc: "Spaghetti al dente, pesto basilic frais et pignons de pin dorés.", lien: "https://www.marmiton.org/recettes/recette_pates-au-pesto_17042.aspx", ingredients: [{ nom: "Pâtes Spaghetti (500g)", rayon: "🍝 Épicerie", prix: 1.20 }, { nom: "Pesto basilic", rayon: "🍝 Épicerie", prix: 2.10 }, { nom: "Pignons de pin", rayon: "🍝 Épicerie", prix: 3.20 }] },
+        { cat: "express", titre: "Salade de Thon et Maïs", desc: "Thon au naturel, maïs doux, œufs durs et vinaigrette maison.", lien: "https://www.750g.com/salade-de-thon-et-mais-r204561.htm", ingredients: [{ nom: "Thon en boîte (x2)", rayon: "🍝 Épicerie", prix: 3.40 }, { nom: "Maïs boîte", rayon: "🍝 Épicerie", prix: 1.10 }, { nom: "Œufs (x4)", rayon: "🧀 Frais & Crèmerie", prix: 1.50 }] },
+        { cat: "express", titre: "Quesadillas au Fromage et Chèvre", desc: "Tortillas dorées garnies de fromage chèvre et miel.", lien: "https://www.marmiton.org/recettes/recette_quesadillas-au-chevre_345210.aspx", ingredients: [{ nom: "Tortillas de blé", rayon: "🍝 Épicerie", prix: 2.20 }, { nom: "Bûche de chèvre", rayon: "🧀 Frais & Crèmerie", prix: 2.40 }, { nom: "Miel", rayon: "🍝 Épicerie", prix: 3.50 }] },
+        { cat: "express", titre: "Gnocchis Poêlés au Parmesan", desc: "Gnocchis dorés au beurre léger et parmesan râpé.", lien: "https://www.cuisineaz.com/recettes/gnocchis-poeles-104523.aspx", ingredients: [{ nom: "Gnocchis (500g)", rayon: "🧀 Frais & Crèmerie", prix: 2.10 }, { nom: "Parmesan râpé", rayon: "🧀 Frais & Crèmerie", prix: 2.50 }, { nom: "Beurre", rayon: "🧀 Frais & Crèmerie", prix: 1.90 }] },
+
+        // --- 7 REPAS ÉQUILIBRÉ & FAMILIAL ---
+        { cat: "equilibre", titre: "Dahl de Lentilles Corail", desc: "Plat mijoté au coco et curcuma, servi avec du riz basmati.", lien: "https://www.marmiton.org/recettes/recette_dahl-de-lentilles-corail_333803.aspx", ingredients: [{ nom: "Lentilles corail (500g)", rayon: "🍝 Épicerie", prix: 1.80 }, { nom: "Lait de coco", rayon: "🍝 Épicerie", prix: 1.60 }, { nom: "Riz basmati (1kg)", rayon: "🍝 Épicerie", prix: 2.20 }] },
+        { cat: "equilibre", titre: "Pavé de Saumon et Courgettes", desc: "Saumon rôti au four avec dés de courgettes et citron.", lien: "https://www.750g.com/pave-de-saumon-au-four-r200542.htm", ingredients: [{ nom: "Pavés de saumon (x4)", rayon: "🥩 Boucherie & Poissonnerie", prix: 8.90 }, { nom: "Courgettes (1kg)", rayon: "🥦 Fruits & Légumes", prix: 2.20 }, { nom: "Citrons", rayon: "🥦 Fruits & Légumes", prix: 1.20 }] },
+        { cat: "equilibre", titre: "Poulet Rôti et Pommes de Terre", desc: "Cuisses de poulet rôties au thym et petites pommes de terre.", lien: "https://www.marmiton.org/recettes/recette_poulet-roti-et-pommes-de-terre_12543.aspx", ingredients: [{ nom: "Cuisses de poulet (x4)", rayon: "🥩 Boucherie & Poissonnerie", prix: 6.80 }, { nom: "Pommes de terre (1.5kg)", rayon: "🥦 Fruits & Légumes", prix: 2.50 }] },
+        { cat: "equilibre", titre: "Curry de Légumes et Riz", desc: "Carottes, petits pois et poivrons mijotés au curry doux.", lien: "https://www.papillesetpupilles.fr/2018/10/curry-de-legumes.html/", ingredients: [{ nom: "Carottes (1kg)", rayon: "🥦 Fruits & Légumes", prix: 1.50 }, { nom: "Petits pois surgelés", rayon: "🧊 Surgelés", prix: 1.80 }, { nom: "Riz", rayon: "🍝 Épicerie", prix: 1.80 }] },
+        { cat: "equilibre", titre: "Filet de Cabillaud et Riz", desc: "Poisson blanc à la vapeur, fondue de poireaux et riz.", lien: "https://www.cuisineaz.com/recettes/dos-de-cabillaud-au-four-82542.aspx", ingredients: [{ nom: "Dos de cabillaud (x4)", rayon: "🥩 Boucherie & Poissonnerie", prix: 9.50 }, { nom: "Poireaux (1kg)", rayon: "🥦 Fruits & Légumes", prix: 2.30 }] },
+        { cat: "equilibre", titre: "Quiche aux Épinards et Chèvre", desc: "Pâte brisée, épinards frais sautés et rondelles de chèvre.", lien: "https://www.marmiton.org/recettes/recette_quiche-aux-epinards-et-au-chevre_20562.aspx", ingredients: [{ nom: "Pâte brisée", rayon: "🧀 Frais & Crèmerie", prix: 1.30 }, { nom: "Épinards (500g)", rayon: "🥦 Fruits & Légumes", prix: 2.10 }, { nom: "Chèvre", rayon: "🧀 Frais & Crèmerie", prix: 2.40 }] },
+        { cat: "equilibre", titre: "Gratin de Chou-Fleur", desc: "Chou-fleur fondant nappé de béchamel et emmental gratiné.", lien: "https://www.750g.com/gratin-de-chou-fleur-r12456.htm", ingredients: [{ nom: "Chou-fleur", rayon: "🥦 Fruits & Légumes", prix: 2.40 }, { nom: "Lait (1L)", rayon: "🧀 Frais & Crèmerie", prix: 1.10 }, { nom: "Emmental râpé", rayon: "🧀 Frais & Crèmerie", prix: 2.20 }] },
+
+        // --- 6 REPAS PLAISIR / WEEK-END ---
+        { cat: "plaisir", titre: "Burger Maison Cheddar", desc: "Pains bun, 4 steaks hachés, cheddar fondu et oignons caramélisés.", lien: "https://www.marmiton.org/recettes/recette_hamburger-maison_13028.aspx", ingredients: [{ nom: "Pains burger (x4)", rayon: "🍝 Épicerie", prix: 2.20 }, { nom: "Steaks hachés (x4)", rayon: "🥩 Boucherie & Poissonnerie", prix: 6.80 }, { nom: "Cheddar", rayon: "🧀 Frais & Crèmerie", prix: 2.30 }] },
+        { cat: "plaisir", titre: "Pizza Reine Maison", desc: "Pâte à pizza, sauce tomate, jambon, champignons et mozzarella.", lien: "https://www.750g.com/pizza-reine-r83521.htm", ingredients: [{ nom: "Pâte à pizza", rayon: "🧀 Frais & Crèmerie", prix: 1.40 }, { nom: "Sauce tomate", rayon: "🍝 Épicerie", prix: 1.20 }, { nom: "Mozzarella (x2)", rayon: "🧀 Frais & Crèmerie", prix: 2.20 }] },
+        { cat: "plaisir", titre: "Lasagnes à la Bolognaise", desc: "Pâtes lasagnes, sauce viande bœuf miitée, béchamel et fromage.", lien: "https://www.marmiton.org/recettes/recette_lasagnes-a-la-bolognaise_10524.aspx", ingredients: [{ nom: "Viande hachée (500g)", rayon: "🥩 Boucherie & Poissonnerie", prix: 6.20 }, { nom: "Plaques lasagnes", rayon: "🍝 Épicerie", prix: 1.80 }, { nom: "Purée tomates", rayon: "🍝 Épicerie", prix: 1.40 }] },
+        { cat: "plaisir", titre: "Tartiflette Traditionnelle", desc: "Pommes de terre, reblochon fondant, lardons et oignons.", lien: "https://www.cuisineaz.com/recettes/la-vraie-tartiflette-12450.aspx", ingredients: [{ nom: "Reblochon", rayon: "🧀 Frais & Crèmerie", prix: 5.80 }, { nom: "Lardons (200g)", rayon: "🥩 Boucherie & Poissonnerie", prix: 2.30 }, { nom: "Pommes de terre", rayon: "🥦 Fruits & Légumes", prix: 2.50 }] },
+        { cat: "plaisir", titre: "Fajitas au Poulet et Poivrons", desc: "Tortillas garnies de poulet épicé, poivrons rouges et guacamole.", lien: "https://www.marmiton.org/recettes/recette_fajitas-au-poulet_19524.aspx", ingredients: [{ nom: "Mélange Fajitas", rayon: "🍝 Épicerie", prix: 3.50 }, { nom: "Poulet (500g)", rayon: "🥩 Boucherie & Poissonnerie", prix: 6.50 }, { nom: "Poivrons (x3)", rayon: "🥦 Fruits & Légumes", prix: 2.60 }] },
+        { cat: "plaisir", titre: "Carbonara à l'Italienne", desc: "Spaghetti, guanciale ou pancetta, jaunes d'œufs et pecorino.", lien: "https://www.750g.com/recette-carbonara-italienne-r204210.htm", ingredients: [{ nom: "Pancetta (150g)", rayon: "🥩 Boucherie & Poissonnerie", prix: 3.80 }, { nom: "Œufs (x4)", rayon: "🧀 Frais & Crèmerie", prix: 1.50 }, { nom: "Pâtes Spaghetti", rayon: "🍝 Épicerie", prix: 1.20 }] },
+
+        // --- 5 GOÛTERS & ENCAS ---
+        { cat: "gouter", titre: "Crêpes Moelleuses Traditionnelles", desc: "Pâte à crêpes dorées au beurre, vanille et sucre.", lien: "https://www.marmiton.org/recettes/recette_pate-a-crepes_12372.aspx", ingredients: [{ nom: "Farine (1kg)", rayon: "🍝 Épicerie", prix: 1.10 }, { nom: "Lait (1L)", rayon: "🧀 Frais & Crèmerie", prix: 1.10 }, { nom: "Œufs (x6)", rayon: "🧀 Frais & Crèmerie", prix: 2.10 }] },
+        { cat: "gouter", titre: "Cookies aux Pépites de Chocolat", desc: "Cookies croustillants à l'extérieur et moelleux au cœur.", lien: "https://www.750g.com/cookies-aux-pepites-de-chocolat-r83520.htm", ingredients: [{ nom: "Pépites de chocolat", rayon: "🍝 Épicerie", prix: 2.20 }, { nom: "Beurre (250g)", rayon: "🧀 Frais & Crèmerie", prix: 2.40 }, { nom: "Sucre vanillé", rayon: "🍝 Épicerie", prix: 0.90 }] },
+        { cat: "gouter", titre: "Gaufres Liégeoises Croustillantes", desc: "Gaufres dorées garnies de sucre perlé croustillant.", lien: "https://www.cuisineaz.com/recettes/gaufres-liegeoises-52140.aspx", ingredients: [{ nom: "Sucre perlé", rayon: "🍝 Épicerie", prix: 2.10 }, { nom: "Levure boulangère", rayon: "🍝 Épicerie", prix: 0.80 }, { nom: "Beurre", rayon: "🧀 Frais & Crèmerie", prix: 2.40 }] },
+        { cat: "gouter", titre: "Pancakes Américains Moelleux", desc: "Pancakes épais et légers à déguster avec du sirop d'érable.", lien: "https://www.marmiton.org/recettes/recette_pancakes-faciles_63520.aspx", ingredients: [{ nom: "Sirop d'érable", rayon: "🍝 Épicerie", prix: 4.50 }, { nom: "Levure chimique", rayon: "🍝 Épicerie", prix: 0.70 }, { nom: "Lait", rayon: "🧀 Frais & Crèmerie", prix: 1.10 }] },
+        { cat: "gouter", titre: "Brioche Perdue au Sucre", desc: "Tranches de brioche imbibées de lait et œuf, poêlées au beurre.", lien: "https://www.750g.com/brioche-perdue-r99450.htm", ingredients: [{ nom: "Brioche tressée", rayon: "🍝 Épicerie", prix: 2.80 }, { nom: "Œufs", rayon: "🧀 Frais & Crèmerie", prix: 1.50 }, { nom: "Lait", rayon: "🧀 Frais & Crèmerie", prix: 1.10 }] },
+
+        // --- 5 DESSERTS & DOUCEURS ---
+        { cat: "dessert", titre: "Mousse au Chocolat Intense", desc: "Mousse légère et intense préparée avec du chocolat noir.", lien: "https://www.marmiton.org/recettes/recette_mousse-au-chocolat-facile_13520.aspx", ingredients: [{ nom: "Chocolat noir pâtissier", rayon: "🍝 Épicerie", prix: 2.30 }, { nom: "Œufs (x6)", rayon: "🧀 Frais & Crèmerie", prix: 2.10 }] },
+        { cat: "dessert", titre: "Tarte aux Pommes Rustique", desc: "Pâte feuilletée, compote de pommes et lamelles de pommes dorées.", lien: "https://www.750g.com/tarte-aux-pommes-r12520.htm", ingredients: [{ nom: "Pâte feuilletée", rayon: "🧀 Frais & Crèmerie", prix: 1.30 }, { nom: "Pommes (1.5kg)", rayon: "🥦 Fruits & Légumes", prix: 2.80 }, { nom: "Compote pommes", rayon: "🍝 Épicerie", prix: 1.60 }] },
+        { cat: "dessert", titre: "Fondant au Chocolat Cœur Coulant", desc: "Gâteau fondant individuel au chocolat noir intense.", lien: "https://www.cuisineaz.com/recettes/fondant-au-chocolat-10250.aspx", ingredients: [{ nom: "Chocolat noir pâtissier", rayon: "🍝 Épicerie", prix: 2.30 }, { nom: "Beurre", rayon: "🧀 Frais & Crèmerie", prix: 2.40 }, { nom: "Sucre", rayon: "🍝 Épicerie", prix: 1.20 }] },
+        { cat: "dessert", titre: "Tiramisu Italien Classique", desc: "Biscuits boudoirs imbibés de café, crème mascarpone et cacao.", lien: "https://www.marmiton.org/recettes/recette_tiramisu-italien_14520.aspx", ingredients: [{ nom: "Mascarpone (250g)", rayon: "🧀 Frais & Crèmerie", prix: 2.60 }, { nom: "Biscuits boudoirs", rayon: "🍝 Épicerie", prix: 1.80 }, { nom: "Cacao en poudre", rayon: "🍝 Épicerie", prix: 1.90 }] },
+        { cat: "dessert", titre: "Crumble Pommes & Poires", desc: "Fruits tendres cuits sous une pâte sablée croustillante au beurre.", lien: "https://www.750g.com/crumble-pommes-poires-r8520.htm", ingredients: [{ nom: "Pommes (1kg)", rayon: "🥦 Fruits & Légumes", prix: 2.20 }, { nom: "Poires (1kg)", rayon: "🥦 Fruits & Légumes", prix: 2.60 }, { nom: "Beurre", rayon: "🧀 Frais & Crèmerie", prix: 2.40 }] }
+    ];
+
+    // --- RECETTES SUPPLÉMENTAIRES (en français, liens de recherche fiables) ---
+    function lienRecherche(titre) {
+        return "https://www.marmiton.org/recettes/recherche.aspx?aqt=" + encodeURIComponent(titre);
+    }
+
+    const catalogueExtra = [
+        // --- EXPRESS ---
+        { cat: "express", titre: "Poêlée de Pâtes au Jambon et Petits Pois", desc: "Coquillettes, dés de jambon et petits pois à la crème légère.", lien: lienRecherche("poêlée de pâtes au jambon et petits pois"), ingredients: [{ nom: "Coquillettes (500g)", rayon: "🍝 Épicerie", prix: 1.20 }, { nom: "Jambon (200g)", rayon: "🧀 Frais & Crèmerie", prix: 3.20 }, { nom: "Petits pois surgelés", rayon: "🧊 Surgelés", prix: 1.80 }, { nom: "Crème fraîche", rayon: "🧀 Frais & Crèmerie", prix: 1.60 }] },
+        { cat: "express", titre: "Toasts Avocat et Œuf Poché", desc: "Pain toasté, avocat écrasé, œuf poché et filet de citron.", lien: lienRecherche("toasts avocat et œuf poché"), ingredients: [{ nom: "Pain de campagne", rayon: "🍝 Épicerie", prix: 2.20 }, { nom: "Avocats (x3)", rayon: "🥦 Fruits & Légumes", prix: 3.00 }, { nom: "Œufs (x4)", rayon: "🧀 Frais & Crèmerie", prix: 1.50 }, { nom: "Citron", rayon: "🥦 Fruits & Légumes", prix: 0.60 }] },
+        { cat: "express", titre: "Nouilles Sautées au Poulet et Légumes", desc: "Nouilles chinoises sautées au wok avec poulet et légumes croquants.", lien: lienRecherche("nouilles sautées au poulet et légumes"), ingredients: [{ nom: "Nouilles chinoises", rayon: "🍝 Épicerie", prix: 1.80 }, { nom: "Poulet (500g)", rayon: "🥩 Boucherie & Poissonnerie", prix: 6.50 }, { nom: "Poivrons (x2)", rayon: "🥦 Fruits & Légumes", prix: 2.00 }, { nom: "Sauce soja", rayon: "🍝 Épicerie", prix: 2.10 }] },
+        { cat: "express", titre: "Riz Cantonais Maison", desc: "Riz sauté au jambon, petits pois, œuf brouillé et sauce soja.", lien: lienRecherche("riz cantonais maison"), ingredients: [{ nom: "Riz (500g)", rayon: "🍝 Épicerie", prix: 1.80 }, { nom: "Jambon (150g)", rayon: "🧀 Frais & Crèmerie", prix: 2.50 }, { nom: "Petits pois surgelés", rayon: "🧊 Surgelés", prix: 1.80 }, { nom: "Œufs (x3)", rayon: "🧀 Frais & Crèmerie", prix: 1.10 }] },
+        { cat: "express", titre: "Salade César Maison", desc: "Salade romaine, poulet grillé, croûtons, parmesan et sauce César.", lien: lienRecherche("salade césar maison"), ingredients: [{ nom: "Salade romaine", rayon: "🥦 Fruits & Légumes", prix: 1.80 }, { nom: "Blancs de poulet (x2)", rayon: "🥩 Boucherie & Poissonnerie", prix: 5.60 }, { nom: "Parmesan râpé", rayon: "🧀 Frais & Crèmerie", prix: 2.50 }, { nom: "Croûtons", rayon: "🍝 Épicerie", prix: 1.60 }] },
+
+        // --- ÉQUILIBRE ---
+        { cat: "equilibre", titre: "Papillote de Poulet aux Légumes", desc: "Filet de poulet et légumes de saison cuits en papillote au four.", lien: lienRecherche("papillote de poulet aux légumes"), ingredients: [{ nom: "Filets de poulet (x4)", rayon: "🥩 Boucherie & Poissonnerie", prix: 7.20 }, { nom: "Carottes", rayon: "🥦 Fruits & Légumes", prix: 1.50 }, { nom: "Courgettes", rayon: "🥦 Fruits & Légumes", prix: 2.00 }] },
+        { cat: "equilibre", titre: "Poêlée de Quinoa aux Légumes Grillés", desc: "Quinoa moelleux, poivrons et courgettes grillés, feta émiettée.", lien: lienRecherche("poêlée de quinoa aux légumes grillés"), ingredients: [{ nom: "Quinoa (500g)", rayon: "🍝 Épicerie", prix: 3.20 }, { nom: "Poivrons (x2)", rayon: "🥦 Fruits & Légumes", prix: 2.00 }, { nom: "Feta", rayon: "🧀 Frais & Crèmerie", prix: 2.80 }] },
+        { cat: "equilibre", titre: "Blanquette de Veau Légère", desc: "Veau mijoté avec carottes, champignons et sauce blanche onctueuse.", lien: lienRecherche("blanquette de veau légère"), ingredients: [{ nom: "Veau à blanquette (800g)", rayon: "🥩 Boucherie & Poissonnerie", prix: 12.50 }, { nom: "Carottes", rayon: "🥦 Fruits & Légumes", prix: 1.50 }, { nom: "Champignons", rayon: "🥦 Fruits & Légumes", prix: 1.80 }, { nom: "Crème fraîche", rayon: "🧀 Frais & Crèmerie", prix: 1.60 }] },
+        { cat: "equilibre", titre: "Soupe de Légumes et Vermicelles", desc: "Bouillon de légumes maison avec vermicelles et herbes fraîches.", lien: lienRecherche("soupe de légumes et vermicelles"), ingredients: [{ nom: "Poireaux", rayon: "🥦 Fruits & Légumes", prix: 2.30 }, { nom: "Carottes", rayon: "🥦 Fruits & Légumes", prix: 1.50 }, { nom: "Vermicelles", rayon: "🍝 Épicerie", prix: 1.10 }] },
+        { cat: "equilibre", titre: "Filet de Poulet Mariné et Brocolis Vapeur", desc: "Poulet mariné au citron et thym, brocolis vapeur croquants.", lien: lienRecherche("filet de poulet mariné et brocolis vapeur"), ingredients: [{ nom: "Filets de poulet (x4)", rayon: "🥩 Boucherie & Poissonnerie", prix: 7.20 }, { nom: "Brocolis", rayon: "🥦 Fruits & Légumes", prix: 2.20 }, { nom: "Citron", rayon: "🥦 Fruits & Légumes", prix: 0.60 }] },
+
+        // --- PLAISIR ---
+        { cat: "plaisir", titre: "Chili con Carne Maison", desc: "Bœuf haché mijoté aux haricots rouges, tomates et épices.", lien: lienRecherche("chili con carne maison"), ingredients: [{ nom: "Bœuf haché (600g)", rayon: "🥩 Boucherie & Poissonnerie", prix: 7.50 }, { nom: "Haricots rouges", rayon: "🍝 Épicerie", prix: 1.30 }, { nom: "Purée de tomates", rayon: "🍝 Épicerie", prix: 1.40 }] },
+        { cat: "plaisir", titre: "Risotto aux Champignons et Parmesan", desc: "Riz arborio crémeux, champignons dorés et copeaux de parmesan.", lien: lienRecherche("risotto aux champignons et parmesan"), ingredients: [{ nom: "Riz arborio (500g)", rayon: "🍝 Épicerie", prix: 2.60 }, { nom: "Champignons (400g)", rayon: "🥦 Fruits & Légumes", prix: 2.80 }, { nom: "Parmesan râpé", rayon: "🧀 Frais & Crèmerie", prix: 2.50 }] },
+        { cat: "plaisir", titre: "Couscous Royal", desc: "Semoule, merguez, poulet, agneau et légumes mijotés au bouillon.", lien: lienRecherche("couscous royal"), ingredients: [{ nom: "Semoule à couscous", rayon: "🍝 Épicerie", prix: 2.20 }, { nom: "Merguez (x8)", rayon: "🥩 Boucherie & Poissonnerie", prix: 6.50 }, { nom: "Poulet (500g)", rayon: "🥩 Boucherie & Poissonnerie", prix: 6.50 }, { nom: "Carottes", rayon: "🥦 Fruits & Légumes", prix: 1.50 }] },
+        { cat: "plaisir", titre: "Croziflette Savoyarde", desc: "Crozets, lardons, reblochon fondu et oignons, façon tartiflette.", lien: lienRecherche("croziflette savoyarde"), ingredients: [{ nom: "Crozets (500g)", rayon: "🍝 Épicerie", prix: 3.20 }, { nom: "Reblochon", rayon: "🧀 Frais & Crèmerie", prix: 5.80 }, { nom: "Lardons (200g)", rayon: "🥩 Boucherie & Poissonnerie", prix: 2.30 }] },
+        { cat: "plaisir", titre: "Paella Familiale", desc: "Riz safrané, poulet, chorizo, gambas et légumes, façon espagnole.", lien: lienRecherche("paella familiale"), ingredients: [{ nom: "Riz rond (500g)", rayon: "🍝 Épicerie", prix: 2.00 }, { nom: "Poulet (500g)", rayon: "🥩 Boucherie & Poissonnerie", prix: 6.50 }, { nom: "Chorizo", rayon: "🥩 Boucherie & Poissonnerie", prix: 3.40 }, { nom: "Gambas", rayon: "🥩 Boucherie & Poissonnerie", prix: 6.90 }] },
+
+        // --- GOÛTERS & ENCAS ---
+        { cat: "gouter", titre: "Muffins aux Pépites de Chocolat", desc: "Muffins moelleux généreusement garnis de pépites de chocolat.", lien: lienRecherche("muffins aux pépites de chocolat"), ingredients: [{ nom: "Farine (500g)", rayon: "🍝 Épicerie", prix: 1.10 }, { nom: "Pépites de chocolat", rayon: "🍝 Épicerie", prix: 2.20 }, { nom: "Œufs (x3)", rayon: "🧀 Frais & Crèmerie", prix: 1.10 }] },
+        { cat: "gouter", titre: "Far Breton aux Pruneaux", desc: "Flan pâtissier breton moelleux aux pruneaux fondants.", lien: lienRecherche("far breton aux pruneaux"), ingredients: [{ nom: "Pruneaux (200g)", rayon: "🍝 Épicerie", prix: 2.60 }, { nom: "Farine (500g)", rayon: "🍝 Épicerie", prix: 1.10 }, { nom: "Lait (1L)", rayon: "🧀 Frais & Crèmerie", prix: 1.10 }, { nom: "Œufs (x4)", rayon: "🧀 Frais & Crèmerie", prix: 1.50 }] },
+        { cat: "gouter", titre: "Madeleines Moelleuses", desc: "Petites madeleines dorées à la bosse bien gonflée, parfum citron.", lien: lienRecherche("madeleines moelleuses"), ingredients: [{ nom: "Farine (500g)", rayon: "🍝 Épicerie", prix: 1.10 }, { nom: "Beurre (250g)", rayon: "🧀 Frais & Crèmerie", prix: 2.40 }, { nom: "Œufs (x3)", rayon: "🧀 Frais & Crèmerie", prix: 1.10 }, { nom: "Citron", rayon: "🥦 Fruits & Légumes", prix: 0.60 }] },
+        { cat: "gouter", titre: "Cake au Citron", desc: "Cake moelleux et parfumé, glaçage au citron craquant.", lien: lienRecherche("cake au citron"), ingredients: [{ nom: "Farine (500g)", rayon: "🍝 Épicerie", prix: 1.10 }, { nom: "Citrons (x3)", rayon: "🥦 Fruits & Légumes", prix: 1.80 }, { nom: "Sucre glace", rayon: "🍝 Épicerie", prix: 1.30 }] },
+
+        // --- DESSERTS ---
+        { cat: "dessert", titre: "Île Flottante", desc: "Blancs en neige pochés sur une crème anglaise et caramel.", lien: lienRecherche("île flottante"), ingredients: [{ nom: "Œufs (x6)", rayon: "🧀 Frais & Crèmerie", prix: 2.10 }, { nom: "Lait (1L)", rayon: "🧀 Frais & Crèmerie", prix: 1.10 }, { nom: "Sucre", rayon: "🍝 Épicerie", prix: 1.20 }] },
+        { cat: "dessert", titre: "Clafoutis aux Cerises", desc: "Cerises noyées dans un appareil moelleux façon flan, à la vanille.", lien: lienRecherche("clafoutis aux cerises"), ingredients: [{ nom: "Cerises (600g)", rayon: "🥦 Fruits & Légumes", prix: 4.50 }, { nom: "Farine (500g)", rayon: "🍝 Épicerie", prix: 1.10 }, { nom: "Œufs (x4)", rayon: "🧀 Frais & Crèmerie", prix: 1.50 }] },
+        { cat: "dessert", titre: "Panna Cotta aux Fruits Rouges", desc: "Crème vanillée onctueuse, coulis de fruits rouges frais.", lien: lienRecherche("panna cotta aux fruits rouges"), ingredients: [{ nom: "Crème liquide entière", rayon: "🧀 Frais & Crèmerie", prix: 2.20 }, { nom: "Fruits rouges (mélange)", rayon: "🥦 Fruits & Légumes", prix: 3.50 }, { nom: "Sucre", rayon: "🍝 Épicerie", prix: 1.20 }] },
+        { cat: "dessert", titre: "Charlotte aux Fraises", desc: "Biscuits cuillère, mousse légère à la fraise, façon entremets.", lien: lienRecherche("charlotte aux fraises"), ingredients: [{ nom: "Biscuits à la cuillère", rayon: "🍝 Épicerie", prix: 2.10 }, { nom: "Fraises (500g)", rayon: "🥦 Fruits & Légumes", prix: 3.20 }, { nom: "Crème liquide entière", rayon: "🧀 Frais & Crèmerie", prix: 2.20 }] },
+        { cat: "dessert", titre: "Profiteroles Maison", desc: "Choux garnis de glace vanille, nappés de sauce chocolat chaude.", lien: lienRecherche("profiteroles maison"), ingredients: [{ nom: "Farine (500g)", rayon: "🍝 Épicerie", prix: 1.10 }, { nom: "Œufs (x4)", rayon: "🧀 Frais & Crèmerie", prix: 1.50 }, { nom: "Chocolat noir pâtissier", rayon: "🍝 Épicerie", prix: 2.30 }, { nom: "Beurre", rayon: "🧀 Frais & Crèmerie", prix: 1.90 }] }
+    ];
+
+    let catalogueComplet = [...catalogueBase, ...catalogueExtra];
+    let appData = { repas: {}, courses: [], magasin: "superu" };
+    let dernierRepasHasard = null;
+    let dernierRepasFrigo = null;
+    let dernierRepasApi = null;
+
+    window.onload = function() {
+        db.ref('familles/' + ID_FAMILLE + '/appRepas').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                appData = data;
+                if (!appData.repas) appData.repas = {};
+                if (!appData.courses) appData.courses = [];
+                if (!appData.magasin) appData.magasin = "superu";
+                if (!appData.portions) appData.portions = 4;
+                if (!appData.historique) appData.historique = [];
+            }
+            document.getElementById("choix-magasin").value = appData.magasin;
+            document.getElementById("nb-personnes").value = appData.portions || 4;
+            afficherPlanning();
+            afficherFichesSemaine();
+            afficherCourses();
+            afficherHistorique();
+        });
+    };
+
+    function changerPortions(val) {
+        const n = parseInt(val) || 4;
+        appData.portions = n;
+        sauvegarder();
+        afficherCourses();
+    }
+
+    function sauvegarder() {
+        db.ref('familles/' + ID_FAMILLE + '/appRepas').set(appData);
+    }
+
+    function changerMagasin(mag) {
+        appData.magasin = mag;
+        sauvegarder();
+    }
+
+    function afficherSelecteurJour(type) {
+        const pickerBox = document.getElementById("picker-" + type);
+        const pickerGrid = document.getElementById("picker-" + type + "-grid");
+        
+        pickerGrid.innerHTML = "";
+        joursSemaine.forEach(j => {
+            const btn = document.createElement("button");
+            btn.className = "btn-day-pick";
+            btn.innerText = j;
+            btn.onclick = () => {
+                let repasAAjouter = type === 'hasard' ? dernierRepasHasard : (type === 'frigo' ? dernierRepasFrigo : dernierRepasApi);
+                validerAjoutPlanningDirect(j, repasAAjouter);
+                pickerBox.style.display = "none";
+            };
+            pickerGrid.appendChild(btn);
+        });
+
+        pickerBox.style.display = pickerBox.style.display === "block" ? "none" : "block";
+    }
+
+    function validerAjoutPlanningDirect(jour, repasObj) {
+        if (!repasObj) return;
+        appData.repas[jour] = repasObj.titre;
+        if (repasObj.ingredients) ajouterIngredientsAuxCourses(repasObj.ingredients);
+        sauvegarder();
+    }
+
+    function proposerRepasHasard() {
+        const cat = document.getElementById("filtre-cat").value;
+        let liste = cat === "tous" ? catalogueComplet : catalogueComplet.filter(r => r.cat === cat);
+        
+        dernierRepasHasard = liste[Math.floor(Math.random() * liste.length)];
+        
+        document.getElementById("sugg-cat").innerText = dernierRepasHasard.cat.toUpperCase();
+        document.getElementById("sugg-titre").innerText = dernierRepasHasard.titre;
+        document.getElementById("sugg-desc").innerText = dernierRepasHasard.desc;
+        document.getElementById("sugg-lien").href = genererLienTraduit(dernierRepasHasard.lien);
+        document.getElementById("suggestion-card").style.display = "block";
+        document.getElementById("picker-hasard").style.display = "none";
+    }
+
+    function chercherFrigo() {
+        const saisie = document.getElementById("input-frigo").value.toLowerCase().trim();
+        const card = document.getElementById("frigo-card");
+
+        if (!saisie) { alert("Entrez au moins un ingrédient du frigo..."); return; }
+
+        const mots = saisie.split(',').map(m => m.trim()).filter(m => m.length > 0);
+        
+        const correspondances = catalogueComplet.filter(r => {
+            return mots.some(m => 
+                r.titre.toLowerCase().includes(m) || 
+                r.desc.toLowerCase().includes(m) ||
+                (r.ingredients && r.ingredients.some(ing => ing.nom.toLowerCase().includes(m)))
+            );
+        });
+
+        if (correspondances.length === 0) {
+            document.getElementById("frigo-titre").innerText = "Aucune recette trouvée";
+            document.getElementById("frigo-desc").innerText = "Essayez avec d'autres ingrédients.";
+            document.getElementById("frigo-ingredients").innerHTML = "";
+            document.getElementById("frigo-lien").style.display = "none";
+            card.style.display = "block";
+            dernierRepasFrigo = null;
+            return;
+        }
+
+        dernierRepasFrigo = correspondances[Math.floor(Math.random() * correspondances.length)];
+        
+        document.getElementById("frigo-titre").innerText = dernierRepasFrigo.titre;
+        document.getElementById("frigo-desc").innerText = dernierRepasFrigo.desc;
+        document.getElementById("frigo-lien").href = genererLienTraduit(dernierRepasFrigo.lien);
+        document.getElementById("frigo-lien").style.display = "inline";
+
+        let ingHtml = "";
+        if (dernierRepasFrigo.ingredients) {
+            dernierRepasFrigo.ingredients.forEach(ing => {
+                ingHtml += `<span class="tag-ingred">${escapeHtml(ing.nom)}</span>`;
+            });
+        }
+        document.getElementById("frigo-ingredients").innerHTML = ingHtml;
+        card.style.display = "block";
+        document.getElementById("picker-frigo").style.display = "none";
+    }
+
+    async function proposerRandomApi() {
+        document.getElementById("api-card").style.display = "none";
+        document.getElementById("api-results-grid").style.display = "none";
+        try {
+            const res = await fetch("https://www.themealdb.com/api/json/v1/1/random.php");
+            const data = await res.json();
+            if (data && data.meals && data.meals.length > 0) {
+                afficherRepasApi(data.meals[0]);
+            }
+        } catch (e) {
+            alert("Erreur de connexion à l'API Web.");
+        }
+    }
+
+    async function rechercherApiDirect() {
+        const queryFr = document.getElementById("input-api-query").value.trim();
+        if (!queryFr) { alert("Entrez un nom de plat en français..."); return; }
+
+        document.getElementById("api-card").style.display = "none";
+        document.getElementById("api-results-grid").style.display = "none";
+
+        try {
+            const queryEn = await traduireEnAnglaisLoc(queryFr);
+            const res = await fetch("https://www.themealdb.com/api/json/v1/1/search.php?s=" + encodeURIComponent(queryEn));
+            const data = await res.json();
+            if (data && data.meals && data.meals.length > 0) {
+                afficherGrilleResultats(data.meals.slice(0, 6));
+            } else {
+                alert("Aucun résultat trouvé sur l'API Web pour '" + queryFr + "'.");
+            }
+        } catch (e) {
+            alert("Erreur lors de la recherche API.");
+        }
+    }
+
+    function afficherGrilleResultats(meals) {
+        const grid = document.getElementById("api-results-grid");
+        grid.innerHTML = "";
+
+        meals.forEach((meal) => {
+            const item = document.createElement("div");
+            item.className = "result-item";
+            const titreTr = traduireEnFrancaisLoc(meal.strMeal);
+            item.innerHTML = `
+                <img src="${meal.strMealThumb}" alt="${escapeHtml(titreTr)}">
+                <div class="result-item-title">${escapeHtml(titreTr)}</div>
+            `;
+            item.onclick = () => {
+                grid.style.display = "none";
+                afficherRepasApi(meal);
+            };
+            grid.appendChild(item);
+        });
+
+        grid.style.display = "grid";
+    }
+
+    function afficherRepasApi(meal) {
+        const titreFr = traduireEnFrancaisLoc(meal.strMeal);
+        const catFr = traduireEnFrancaisLoc(meal.strCategory || "Web");
+        const descFr = meal.strInstructions ? (traduireEnFrancaisLoc(meal.strInstructions.substring(0, 160)) + "...") : "Recette issue du Web.";
+
+        let ingredientsList = [];
+        for (let i = 1; i <= 20; i++) {
+            const ing = meal['strIngredient' + i];
+            const meas = meal['strMeasure' + i];
+            if (ing && ing.trim() !== "") {
+                const ingFr = traduireEnFrancaisLoc(ing.trim());
+                const measureFr = traduireEnFrancaisLoc(meas ? meas.trim() : "");
+                ingredientsList.push({
+                    nom: ingFr + (measureFr ? " (" + measureFr + ")" : ""),
+                    rayon: determinerRayon(ingFr),
+                    prix: 2.50
+                });
+            }
+        }
+
+        const lienOriginal = meal.strSource || ("https://www.marmiton.org/recettes/recherche.aspx?aqt=" + encodeURIComponent(titreFr));
+
+        dernierRepasApi = {
+            titre: titreFr,
+            cat: catFr,
+            desc: descFr,
+            lien: lienOriginal,
+            img: meal.strMealThumb,
+            ingredients: ingredientsList
+        };
+
+        if (!catalogueComplet.some(r => r.titre.toLowerCase() === titreFr.toLowerCase())) {
+            catalogueComplet.push(dernierRepasApi);
+        }
+
+        document.getElementById("api-cat").innerText = "RECETTE WEB (" + catFr.toUpperCase() + ")";
+        document.getElementById("api-titre").innerText = titreFr;
+        document.getElementById("api-desc").innerText = descFr;
+        document.getElementById("api-img").src = meal.strMealThumb;
+        document.getElementById("api-lien").href = genererLienTraduit(lienOriginal);
+
+        let ingHtml = "";
+        ingredientsList.forEach(ing => {
+            ingHtml += `<span class="tag-ingred">${escapeHtml(ing.nom)}</span>`;
+        });
+        document.getElementById("api-ingredients").innerHTML = ingHtml;
+        document.getElementById("api-card").style.display = "block";
+        document.getElementById("picker-api").style.display = "none";
+    }
+
+    function determinerRayon(nomIng) {
+        const n = nomIng.toLowerCase();
+        if (n.includes("poulet") || n.includes("bœuf") || n.includes("boeuf") || n.includes("porc") || n.includes("viande") || n.includes("poisson") || n.includes("saumon") || n.includes("crevette") || n.includes("dinde") || n.includes("fruit de mer") || n.includes("fruits de mer") || n.includes("chorizo") || n.includes("jambon") || n.includes("lardons") || n.includes("cuisse") || n.includes("pancetta") || n.includes("gambas") || n.includes("agneau")) return "🥩 Boucherie & Poissonnerie";
+        if (n.includes("tomate") || n.includes("oignon") || n.includes("poireau") || n.includes("citron") || n.includes("pomme") || n.includes("poire") || n.includes("salade") || n.includes("champignon") || n.includes("épinard") || n.includes("ail") || n.includes("poivron") || n.includes("courgette") || n.includes("carotte") || n.includes("pois") || n.includes("persil") || n.includes("coriandre") || n.includes("piment") || n.includes("gingembre") || n.includes("laurier") || n.includes("cannelle") || n.includes("vanille") || n.includes("laitue") || n.includes("céleri") || n.includes("échalote") || n.includes("aubergine")) return "🥦 Fruits & Légumes";
+        if (n.includes("fromage") || n.includes("lait") || n.includes("beurre") || n.includes("œuf") || n.includes("oeuf") || n.includes("crème") || n.includes("yaourt") || n.includes("parmesan") || n.includes("mozarella") || n.includes("mascarpone") || n.includes("reblochon") || n.includes("chèvre") || n.includes("pâte") || n.includes("feta") || n.includes("ricotta")) return "🧀 Frais & Crèmerie";
+        return "🍝 Épicerie";
+    }
+
+    function genererSemaineComplete() {
+        // Tire des plats distincts (pas de doublon dans la semaine) tant que le catalogue le permet
+        const melange = [...catalogueComplet].sort(() => 0.5 - Math.random());
+        const nbJours = joursSemaine.length;
+        const pool = melange.length >= nbJours ? melange.slice(0, nbJours) : melange;
+        joursSemaine.forEach((j, idx) => {
+            const plat = pool[idx % pool.length];
+            appData.repas[j] = plat.titre;
+            if (plat.ingredients) ajouterIngredientsAuxCourses(plat.ingredients);
+        });
+        sauvegarder();
+    }
+
+    function regenererJourInscrire(jour) {
+        // Exclut les plats déjà présents un autre jour de la semaine, pour éviter les doublons
+        const titresUtilises = Object.entries(appData.repas)
+            .filter(([j, t]) => j !== jour && t)
+            .map(([j, t]) => t.toLowerCase());
+        let candidats = catalogueComplet.filter(r => !titresUtilises.includes(r.titre.toLowerCase()));
+        if (candidats.length === 0) candidats = catalogueComplet;
+        const nouveauPlat = candidats[Math.floor(Math.random() * candidats.length)];
+        appData.repas[jour] = nouveauPlat.titre;
+        if (nouveauPlat.ingredients) ajouterIngredientsAuxCourses(nouveauPlat.ingredients);
+        sauvegarder();
+    }
+
+    function modifierRepas(jour, titrePlat) {
+        appData.repas[jour] = titrePlat;
+        const platTrouve = catalogueComplet.find(r => r.titre.toLowerCase() === titrePlat.toLowerCase());
+        if (platTrouve && platTrouve.ingredients) ajouterIngredientsAuxCourses(platTrouve.ingredients);
+        sauvegarder();
+    }
+
+    function effacerRepas(jour) {
+        appData.repas[jour] = "";
+        sauvegarder();
+    }
+
+    function ouvrirLienRecette(jour) {
+        const platNom = appData.repas[jour];
+        if (!platNom) { alert("Aucun repas défini pour ce jour."); return; }
+        const platTrouve = catalogueComplet.find(r => r.titre.toLowerCase() === platNom.toLowerCase());
+        if (platTrouve && platTrouve.lien) {
+            window.open(genererLienTraduit(platTrouve.lien), '_blank');
+        } else {
+            window.open("https://www.marmiton.org/recettes/recherche.aspx?aqt=" + encodeURIComponent(platNom), '_blank');
+        }
+    }
+
+    function afficherPlanning() {
+        const container = document.getElementById("planning-list");
+        container.innerHTML = "";
+        joursSemaine.forEach(j => {
+            const val = appData.repas[j] || "";
+            const row = document.createElement("div");
+            row.className = "planning-row";
+            row.innerHTML = `
+                <div class="planning-day">${j}</div>
+                <input type="text" value="${escapeHtml(val)}" placeholder="Ajouter un plat..." onchange="modifierRepas('${j}', this.value)">
+                <button class="btn-action btn-refresh" onclick="regenererJourInscrire('${j}')" title="Changer d'idée">🔄</button>
+                <button class="btn-action btn-recipe" onclick="ouvrirLienRecette('${j}')" title="Voir la recette">📖</button>
+                <button class="btn-action btn-delete" onclick="effacerRepas('${j}')" title="Supprimer">✕</button>
+            `;
+            container.appendChild(row);
+        });
+    }
+
+    function afficherFichesSemaine() {
+        const container = document.getElementById("fiches-semaine-list");
+        container.innerHTML = "";
+        let auMoinsUnPlat = false;
+
+        joursSemaine.forEach(j => {
+            const platNom = appData.repas[j];
+            if (platNom) {
+                auMoinsUnPlat = true;
+                const platTrouve = catalogueComplet.find(r => r.titre.toLowerCase() === platNom.toLowerCase());
+                const card = document.createElement("div");
+                card.className = "fiche-semaine-card";
+
+                let lienUrl = platTrouve ? genererLienTraduit(platTrouve.lien) : "https://www.marmiton.org/recettes/recherche.aspx?aqt=" + encodeURIComponent(platNom);
+                let descText = platTrouve ? platTrouve.desc : "Plat personnalisé saisi manuellement.";
+                let ingHtml = "";
+                if (platTrouve && platTrouve.ingredients) {
+                    platTrouve.ingredients.forEach(ing => { ingHtml += `<span class="tag-ingred">${escapeHtml(ing.nom)}</span>`; });
+                }
+
+                card.innerHTML = `
+                    <div style="font-size:0.8em; font-weight:bold; color:#b45309;">${j.toUpperCase()}</div>
+                    <div style="font-size:1em; font-weight:bold; margin:2px 0;">${escapeHtml(platNom)}</div>
+                    <div style="font-size:0.85em; color:#4b5563;">${escapeHtml(descText)}</div>
+                    <div style="margin-top:4px;">${ingHtml}</div>
+                    <div style="margin-top:8px; text-align:right;">
+                        <a href="${lienUrl}" target="_blank" style="font-size:0.8em; color:#b45309; font-weight:bold; text-decoration:underline;">📖 Consulter la recette →</a>
+                    </div>
+                `;
+                container.appendChild(card);
+            }
+        });
+
+        if (!auMoinsUnPlat) {
+            container.innerHTML = "<div style='font-size:0.85em; color:#92400e; text-align:center;'>Aucun repas renseigné dans le planning pour l'instant.</div>";
+        }
+    }
+
+    function ajouterIngredientsAuxCourses(listeIng) {
+        if (!appData.courses) appData.courses = [];
+        listeIng.forEach(ing => {
+            const existant = appData.courses.find(item => item.texte.toLowerCase() === ing.nom.toLowerCase());
+            if (existant) {
+                existant.qte = (existant.qte || 1) + 1;
+            } else {
+                appData.courses.push({ texte: ing.nom, rayon: ing.rayon, prix: ing.prix || 0, coche: false, qte: 1 });
+            }
+        });
+    }
+
+    function ajouterArticleManuel() {
+        const inputNom = document.getElementById("nouvel-article");
+        const inputPrix = document.getElementById("prix-article");
+        const texte = inputNom.value.trim();
+        const prix = parseFloat(inputPrix.value) || 0;
+
+        if (texte) {
+            if (!appData.courses) appData.courses = [];
+            appData.courses.push({ texte: texte, rayon: "📦 Divers", prix: prix, coche: false, qte: 1 });
+            inputNom.value = "";
+            inputPrix.value = "";
+            sauvegarder();
+        }
+    }
+
+    function basculerCourse(idx) { appData.courses[idx].coche = !appData.courses[idx].coche; sauvegarder(); }
+    function supprimerCourse(idx) { appData.courses.splice(idx, 1); sauvegarder(); }
+    function viderCourses() { if (confirm("Voulez-vous vider toute la liste de courses ?")) { appData.courses = []; sauvegarder(); } }
+
+    function afficherCourses() {
+        const container = document.getElementById("courses-list");
+        container.innerHTML = "";
+
+        const portions = appData.portions || 4;
+        const facteur = portions / 4;
+        document.getElementById("label-total").innerText = "Montant Total Estimé (" + portions + " pers.) :";
+
+        if (!appData.courses || appData.courses.length === 0) {
+            container.innerHTML = "<div style='font-size:0.85em; color:#6b7280; text-align:center;'>Aucun article dans la liste.</div>";
+            document.getElementById("total-montant").innerText = "0.00 €";
+            return;
+        }
+
+        let totalGeneral = 0;
+        const mag = appData.magasin || "superu";
+        const rayonsOrdre = ordreRayons[mag];
+
+        rayonsOrdre.forEach(rayon => {
+            const articlesRayon = appData.courses.filter(item => (item.rayon || "📦 Divers") === rayon);
+            if (articlesRayon.length > 0) {
+                let subTotalRayon = 0;
+                articlesRayon.forEach(item => { if (!item.coche) subTotalRayon += (item.prix || 0) * (item.qte || 1) * facteur; });
+                totalGeneral += subTotalRayon;
+
+                const header = document.createElement("div");
+                header.className = "rayon-header";
+                header.innerHTML = `<span>${escapeHtml(rayon)}</span><span>${subTotalRayon.toFixed(2)} €</span>`;
+                container.appendChild(header);
+
+                articlesRayon.forEach(item => {
+                    const idxGlobal = appData.courses.indexOf(item);
+                    const row = document.createElement("div");
+                    row.className = `course-item ${item.coche ? 'fait' : ''}`;
+                    const qteBadge = (item.qte && item.qte > 1) ? `<span class="qte-badge">×${item.qte}</span>` : "";
+                    const prixAffiche = ((item.prix || 0) * (item.qte || 1) * facteur).toFixed(2);
+                    row.innerHTML = `
+                        <input type="checkbox" style="width:auto;" class="no-print" ${item.coche ? 'checked' : ''} onchange="basculerCourse(${idxGlobal})">
+                        <span style="flex:1; font-size:0.9em;">${escapeHtml(item.texte)}${qteBadge}</span>
+                        <span class="prix-tag">${prixAffiche} €</span>
+                        <button style="width:auto; background:var(--danger); padding:4px 8px; font-size:0.75em;" class="no-print" onclick="supprimerCourse(${idxGlobal})">✕</button>
+                    `;
+                    container.appendChild(row);
+                });
+            }
+        });
+
+        document.getElementById("total-montant").innerText = totalGeneral.toFixed(2) + " €";
+    }
+
+    // --- HISTORIQUE DES SEMAINES ---
+    function archiverSemaine() {
+        if (!appData.historique) appData.historique = [];
+        const auMoinsUnPlat = joursSemaine.some(j => appData.repas[j]);
+        if (!auMoinsUnPlat) { alert("Le planning de la semaine est vide, rien à archiver."); return; }
+
+        const snapshot = { date: new Date().toISOString(), repas: { ...appData.repas } };
+        appData.historique.unshift(snapshot);
+        if (appData.historique.length > 12) appData.historique = appData.historique.slice(0, 12);
+        sauvegarder();
+        afficherHistorique();
+        alert("Semaine archivée !");
+    }
+
+    function afficherHistorique() {
+        const container = document.getElementById("historique-list");
+        if (!container) return;
+        container.innerHTML = "";
+
+        if (!appData.historique || appData.historique.length === 0) {
+            container.innerHTML = "<div style='font-size:0.85em; color:#6b7280; text-align:center;'>Aucune semaine archivée pour l'instant.</div>";
+            return;
+        }
+
+        appData.historique.forEach(sem => {
+            const d = new Date(sem.date);
+            const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const plats = joursSemaine
+                .map(j => sem.repas[j] ? (j + " : " + sem.repas[j]) : null)
+                .filter(Boolean);
+
+            const div = document.createElement("div");
+            div.className = "historique-card";
+            let corps = "<b>Semaine du " + escapeHtml(dateStr) + "</b><br>";
+            corps += plats.length > 0 ? escapeHtml(plats.join(" • ")) : "Vide";
+            div.innerHTML = corps;
+            container.appendChild(div);
+        });
+    }
+
+    // --- IMPRESSION & PARTAGE DE LA LISTE DE COURSES ---
+    function genererTexteCourses() {
+        if (!appData.courses || appData.courses.length === 0) return "Liste de courses vide.";
+
+        const portions = appData.portions || 4;
+        const facteur = portions / 4;
+        const mag = appData.magasin || "superu";
+        const rayonsOrdre = ordreRayons[mag];
+
+        let texte = "🛒 Liste de courses (" + portions + " pers.)\n\n";
+        let total = 0;
+
+        rayonsOrdre.forEach(rayon => {
+            const articles = appData.courses.filter(item => (item.rayon || "📦 Divers") === rayon && !item.coche);
+            if (articles.length > 0) {
+                texte += rayon + "\n";
+                articles.forEach(item => {
+                    const qte = item.qte && item.qte > 1 ? " x" + item.qte : "";
+                    texte += "- " + item.texte + qte + "\n";
+                    total += (item.prix || 0) * (item.qte || 1) * facteur;
+                });
+                texte += "\n";
+            }
+        });
+
+        texte += "Total estimé : " + total.toFixed(2) + " €";
+        return texte;
+    }
+
+    function imprimerCourses() {
+        window.print();
+    }
+
+    async function partagerCourses() {
+        const texte = genererTexteCourses();
+
+        if (navigator.share) {
+            try {
+                await navigator.share({ title: "Liste de courses", text: texte });
+                return;
+            } catch (e) {
+                // annulé ou échoué : on retombe sur la copie
+            }
+        }
+
+        try {
+            await navigator.clipboard.writeText(texte);
+            alert("Liste copiée dans le presse-papiers ! Vous pouvez la coller dans SMS, Rappels, etc.");
+        } catch (e) {
+            alert(texte);
+        }
+    }
+</script>
+
+</body>
+</html>
